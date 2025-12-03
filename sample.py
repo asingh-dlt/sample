@@ -1,50 +1,57 @@
-# main.py
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI()
 
-# In-memory "database"
-items = {}
-
-# Data model
+# Data model for POST/PUT requests
 class Item(BaseModel):
     name: str
     price: float
     in_stock: bool
 
+# --- In-memory Database ---
+items_db = {
+    1: {"name": "Laptop", "price": 55000.0, "in_stock": True},
+    2: {"name": "Keyboard", "price": 1200.0, "in_stock": True},
+    3: {"name": "Mouse", "price": 600.0, "in_stock": False},
+}
+
 # Root endpoint
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to FastAPI on EC2!"}
+    return {"message": "Hello from FastAPI on EC2!"}
 
-# Create item
-@app.post("/items/")
-def create_item(item_id: int, item: Item):
-    if item_id in items:
-        raise HTTPException(status_code=400, detail="Item already exists")
-    items[item_id] = item
-    return {"item_id": item_id, "item": item}
+# GET all items
+@app.get("/items/")
+def get_all_items():
+    return {"items": items_db}
 
-# Read item
+# GET item by ID
 @app.get("/items/{item_id}")
 def read_item(item_id: int):
-    if item_id not in items:
+    if item_id not in items_db:
         raise HTTPException(status_code=404, detail="Item not found")
-    return {"item_id": item_id, "item": items[item_id]}
+    return {"item_id": item_id, "item": items_db[item_id]}
 
-# Update item
+# POST → Add item
+@app.post("/items/")
+def create_item(item: Item):
+    new_id = max(items_db.keys()) + 1
+    items_db[new_id] = item.model_dump()
+    return {"message": "Item added", "item_id": new_id, "item": item}
+
+# PUT → Update an item
 @app.put("/items/{item_id}")
 def update_item(item_id: int, item: Item):
-    if item_id not in items:
+    if item_id not in items_db:
         raise HTTPException(status_code=404, detail="Item not found")
-    items[item_id] = item
-    return {"item_id": item_id, "item": item}
+    items_db[item_id] = item.dict()
+    return {"message": "Item updated", "item_id": item_id, "item": item}
 
-# Delete item
+# DELETE → Remove an item
 @app.delete("/items/{item_id}")
 def delete_item(item_id: int):
-    if item_id not in items:
+    if item_id not in items_db:
         raise HTTPException(status_code=404, detail="Item not found")
-    del items[item_id]
-    return {"message": f"Item {item_id} deleted"}
+    del items_db[item_id]
+    return {"message": "Item deleted", "item_id": item_id}
